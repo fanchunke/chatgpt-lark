@@ -5,10 +5,10 @@ import (
 	"flag"
 	"fmt"
 
-	config "github.com/fanchunke1991/chatgpt-lark/conf"
-	"github.com/fanchunke1991/chatgpt-lark/ent/chatent"
-	"github.com/fanchunke1991/chatgpt-lark/internal/app"
-	"github.com/fanchunke1991/chatgpt-lark/pkg/logger"
+	config "github.com/fanchunke/chatgpt-lark/conf"
+	"github.com/fanchunke/chatgpt-lark/ent/chatent"
+	"github.com/fanchunke/chatgpt-lark/internal/app"
+	"github.com/fanchunke/chatgpt-lark/pkg/logger"
 	"github.com/rs/zerolog/log"
 
 	_ "github.com/go-sql-driver/mysql"

@@ -6,11 +6,11 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/fanchunke1991/chatgpt-lark/ent/chatent"
+	"github.com/fanchunke/chatgpt-lark/ent/chatent"
 
-	config "github.com/fanchunke1991/chatgpt-lark/conf"
-	"github.com/fanchunke1991/chatgpt-lark/internal/api"
-	"github.com/fanchunke1991/chatgpt-lark/pkg/httpserver"
+	config "github.com/fanchunke/chatgpt-lark/conf"
+	"github.com/fanchunke/chatgpt-lark/internal/api"
+	"github.com/fanchunke/chatgpt-lark/pkg/httpserver"
 
 	lark "github.com/larksuite/oapi-sdk-go/v3"
 	larkcore "github.com/larksuite/oapi-sdk-go/v3/core"

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/fanchunke1991/chatgpt-lark/ent/chatent"
-	"github.com/fanchunke1991/chatgpt-lark/internal/service"
+	"github.com/fanchunke/chatgpt-lark/ent/chatent"
+	"github.com/fanchunke/chatgpt-lark/internal/service"
 
 	lark "github.com/larksuite/oapi-sdk-go/v3"
 	larkcore "github.com/larksuite/oapi-sdk-go/v3/core"

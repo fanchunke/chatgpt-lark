@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/fanchunke1991/chatgpt-lark/ent/chatent"
-	"github.com/fanchunke1991/chatgpt-lark/ent/chatent/session"
+	"github.com/fanchunke/chatgpt-lark/ent/chatent"
+	"github.com/fanchunke/chatgpt-lark/ent/chatent/session"
 )
 
 type SessionService struct {

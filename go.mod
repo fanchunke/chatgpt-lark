@@ -1,4 +1,4 @@
-module github.com/fanchunke1991/chatgpt-lark
+module github.com/fanchunke/chatgpt-lark
 
 go 1.18
 

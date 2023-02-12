@@ -3,11 +3,11 @@ package api
 import (
 	"net/http"
 
-	"github.com/fanchunke1991/chatgpt-lark/ent/chatent"
+	"github.com/fanchunke/chatgpt-lark/ent/chatent"
 
-	"github.com/fanchunke1991/chatgpt-lark/internal/middleware"
+	"github.com/fanchunke/chatgpt-lark/internal/middleware"
 
-	config "github.com/fanchunke1991/chatgpt-lark/conf"
+	config "github.com/fanchunke/chatgpt-lark/conf"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	sdkginext "github.com/larksuite/oapi-sdk-gin"

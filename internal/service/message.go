@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/fanchunke1991/chatgpt-lark/ent/chatent"
-	"github.com/fanchunke1991/chatgpt-lark/ent/chatent/message"
+	"github.com/fanchunke/chatgpt-lark/ent/chatent"
+	"github.com/fanchunke/chatgpt-lark/ent/chatent/message"
 )
 
 type MessageService struct {
