@@ -1,12 +1,13 @@
 package app
 
 import (
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/fanchunke/chatgpt-lark/ent/chatent"
+	"github.com/fanchunke/xgpt3"
+	"github.com/fanchunke/xgpt3/conversation/ent"
+	"github.com/fanchunke/xgpt3/conversation/ent/chatent"
 
 	config "github.com/fanchunke/chatgpt-lark/conf"
 	"github.com/fanchunke/chatgpt-lark/internal/api"
@@ -34,13 +35,19 @@ func Run(cfg *config.Config) {
 
 	// 初始化数据库 client
 	dbConf := cfg.Database
-	s := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=True", dbConf.User, dbConf.Password, dbConf.Host, dbConf.Port, dbConf.DBName)
-	chatentClient, err := chatent.Open(dbConf.Dialect, s)
+	chatentClient, err := chatent.Open(dbConf.Driver, dbConf.DataSource)
 	if err != nil {
 		log.Fatal().Err(err).Msg("ent - open database failed")
 	}
+	if err := Migrate(cfg); err != nil {
+		log.Fatal().Err(err).Msg("ent - database migrate failed")
+	}
+	log.Info().Msg("数据库迁移成功")
 
-	handler, err := api.NewRouter(cfg, gptClient, larkClient, chatentClient)
+	// 初始化 xgpt3 client
+	xgpt3Client := xgpt3.NewClient(gptClient, ent.New(chatentClient))
+
+	handler, err := api.NewRouter(cfg, xgpt3Client, larkClient)
 	if err != nil {
 		log.Fatal().Err(err).Msg("api - Router - api.Router failed")
 	}
