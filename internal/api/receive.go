@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/fanchunke/chatgpt-lark/ent/chatent"
-	"github.com/fanchunke/chatgpt-lark/internal/service"
+	config "github.com/fanchunke/chatgpt-lark/conf"
+	"github.com/fanchunke/xgpt3"
 
 	lark "github.com/larksuite/oapi-sdk-go/v3"
 	larkcore "github.com/larksuite/oapi-sdk-go/v3/core"
@@ -23,18 +23,16 @@ const (
 )
 
 type callbackHandler struct {
-	gptClient      *gogpt.Client
-	larkClient     *lark.Client
-	messageService *service.MessageService
-	sessionService *service.SessionService
+	cfg         *config.Config
+	xgpt3Client *xgpt3.Client
+	larkClient  *lark.Client
 }
 
-func NewCallbackHandler(gptClient *gogpt.Client, larkClient *lark.Client, chatentClient *chatent.Client) *callbackHandler {
+func NewCallbackHandler(cfg *config.Config, xgpt3Client *xgpt3.Client, larkClient *lark.Client) *callbackHandler {
 	return &callbackHandler{
-		gptClient:      gptClient,
-		larkClient:     larkClient,
-		messageService: service.NewMessageService(chatentClient),
-		sessionService: service.NewSessionService(chatentClient),
+		cfg:         cfg,
+		larkClient:  larkClient,
+		xgpt3Client: xgpt3Client,
 	}
 }
 
@@ -57,8 +55,34 @@ func (h *callbackHandler) OnP2MessageReceiveV1(ctx context.Context, event *larki
 			}
 		}()
 
-		if err := h.getGPTResponse(ctx, appId, openId, content); err != nil {
-			log.Error().Err(err).Msgf("Get GPT Response error: %v", err)
+		var reply string
+
+		// 判断是否需要重启会话
+		closeSession := h.cfg.Conversation.CloseSessionFlag == content
+
+		// 获取回复
+		if !closeSession {
+			reply, err = h.getGPTResponse(context.Background(), appId, openId, content)
+			if err != nil {
+				log.Error().Err(err).Msgf("Get GPT Response error: %v", err)
+				return
+			}
+		} else {
+			if err := h.xgpt3Client.CloseConversation(context.Background(), openId); err != nil {
+				log.Error().Err(err).Msgf("Close Conversation error: %v", err)
+				return
+			}
+			reply = h.cfg.Conversation.CloseSessionReply
+		}
+
+		// 发送回复
+		if reply == "" {
+			log.Debug().Msg("Reply is empty")
+			return
+		}
+		if err := h.sendTextMessage(context.Background(), appId, openId, reply); err != nil {
+			log.Error().Err(err).Msgf("Send Lark Response error: %v", err)
+			return
 		}
 	}()
 
@@ -100,65 +124,41 @@ func (h *callbackHandler) unmarshalLarkMessageContent(content string) (map[strin
 	return result, nil
 }
 
-func (h *callbackHandler) getGPTResponse(ctx context.Context, appId, openId, content string) error {
-	session, newQuery := h.buildSessionQuery(ctx, openId, sessionTurns, content)
-
-	var err error
-	// 如果没有 session，创建一个 session
-	if session == nil {
-		session, err = h.sessionService.CreateSession(ctx, openId)
-		if err != nil {
-			return err
-		}
-	}
-	// 保存用户消息
-	msg, err := h.messageService.CreateMessage(ctx, session, openId, appId, content)
-	if err != nil {
-		return err
-	}
-
-	if len(newQuery) > maxToken {
-		newQuery = string([]rune(newQuery)[len(newQuery)-maxToken:])
-	}
-	log.Info().Msgf("GPT Raw Prompt: %s, New Prompt: %s", content, newQuery)
-
+func (h *callbackHandler) getGPTResponse(ctx context.Context, appId, userId, content string) (string, error) {
 	// 获取 GPT 回复
 	req := gogpt.CompletionRequest{
 		Model:           gogpt.GPT3TextDavinci003,
 		MaxTokens:       1500,
-		Prompt:          newQuery,
+		Prompt:          content,
 		TopP:            1,
 		Temperature:     0.9,
 		PresencePenalty: 0.6,
-		User:            openId,
+		User:            userId,
 	}
-	resp, err := h.gptClient.CreateCompletion(ctx, req)
+	resp, err := h.xgpt3Client.CreateConversationCompletionWithChannel(ctx, req, appId)
 	if err != nil {
-		return fmt.Errorf("CreateCompletion failed: %w", err)
+		return "", fmt.Errorf("CreateCompletion failed: %w", err)
 	}
 
 	if len(resp.Choices) == 0 {
-		return fmt.Errorf("Empty GPT Choices")
+		return "", fmt.Errorf("Empty GPT Choices")
 	}
 
+	// 发送回复给用户
 	reply := strings.TrimSpace(resp.Choices[0].Text)
+	return reply, nil
+}
 
-	// 保存 GPT 回复
-	_, err = h.messageService.CreateSpouseMessage(ctx, session, appId, openId, reply, msg)
-	if err != nil {
-		return err
-	}
-
+func (h *callbackHandler) sendTextMessage(ctx context.Context, appId, userId, content string) error {
 	sendContent, _ := json.Marshal(map[string]string{
-		"text": reply,
+		"text": content,
 	})
-	log.Info().Msgf("Start Send GPT Response: %s", string(sendContent))
-
-	_, err = h.larkClient.Im.Message.Create(ctx, larkim.NewCreateMessageReqBuilder().
+	log.Info().Msgf("[AppId: %d] [UserId: %s] Start Send Lark Response: %s", appId, userId, string(sendContent))
+	_, err := h.larkClient.Im.Message.Create(ctx, larkim.NewCreateMessageReqBuilder().
 		ReceiveIdType(larkim.ReceiveIdTypeOpenId).
 		Body(larkim.NewCreateMessageReqBodyBuilder().
 			MsgType(larkim.MsgTypeText).
-			ReceiveId(openId).
+			ReceiveId(userId).
 			Content(string(sendContent)).
 			Build()).
 		Build())
@@ -168,28 +168,4 @@ func (h *callbackHandler) getGPTResponse(ctx context.Context, appId, openId, con
 	}
 
 	return nil
-}
-
-func (h *callbackHandler) buildSessionQuery(ctx context.Context, userId string, limit int, query string) (*chatent.Session, string) {
-	session, err := h.sessionService.GetLatestActiveSession(ctx, userId)
-	if err != nil {
-		log.Warn().Err(err).Msgf("GetLatestActiveSession failed")
-		return nil, query
-	}
-	msgs, err := h.messageService.ListLatestMessagesWithSpouse(ctx, userId, session.ID, limit)
-	if err != nil {
-		log.Error().Err(err).Msgf("GetLatestActiveSession failed")
-		return session, query
-	}
-
-	result := ""
-	for _, m := range msgs {
-		if m.FromUserID == userId {
-			result += fmt.Sprintf("Q: %s\n", m.Content)
-		} else {
-			result += fmt.Sprintf("A: %s\n", m.Content)
-		}
-	}
-	result += fmt.Sprintf("Q: %s\nA: ", query)
-	return session, result
 }

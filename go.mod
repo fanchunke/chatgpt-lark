@@ -3,22 +3,23 @@ module github.com/fanchunke/chatgpt-lark
 go 1.18
 
 require (
-	entgo.io/ent v0.11.7
+	github.com/fanchunke/xgpt3 v0.1.3
 	github.com/gin-contrib/pprof v1.4.0
 	github.com/gin-gonic/gin v1.8.2
 	github.com/go-sql-driver/mysql v1.7.0
 	github.com/larksuite/oapi-sdk-gin v1.0.0
 	github.com/larksuite/oapi-sdk-go/v3 v3.0.14
+	github.com/mattn/go-sqlite3 v1.14.16
 	github.com/rs/xid v1.4.0
 	github.com/rs/zerolog v1.28.0
 	github.com/sashabaranov/go-gpt3 v1.0.0
 	github.com/spf13/viper v1.14.0
-	go.uber.org/automaxprocs v1.5.1
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
 
 require (
 	ariga.io/atlas v0.9.1-0.20230119145809-92243f7c55cb // indirect
+	entgo.io/ent v0.11.7 // indirect
 	github.com/agext/levenshtein v1.2.1 // indirect
 	github.com/apparentlymart/go-textseg/v13 v13.0.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect

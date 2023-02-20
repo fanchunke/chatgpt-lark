@@ -1,18 +1,15 @@
 package main
 
 import (
-	"context"
 	"flag"
-	"fmt"
 
 	config "github.com/fanchunke/chatgpt-lark/conf"
-	"github.com/fanchunke/chatgpt-lark/ent/chatent"
 	"github.com/fanchunke/chatgpt-lark/internal/app"
 	"github.com/fanchunke/chatgpt-lark/pkg/logger"
 	"github.com/rs/zerolog/log"
 
 	_ "github.com/go-sql-driver/mysql"
-	_ "go.uber.org/automaxprocs"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 func main() {
@@ -32,27 +29,11 @@ func main() {
 
 	// 数据库迁移
 	if *initEnt {
-		if err := migrate(cfg); err != nil {
+		if err := app.Migrate(cfg); err != nil {
 			log.Fatal().Err(err).Msg("failed creating schema resources")
 		}
 		return
 	}
 
 	app.Run(cfg)
-}
-
-func migrate(cfg *config.Config) error {
-	dbConf := cfg.Database
-	s := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=True", dbConf.User, dbConf.Password, dbConf.Host, dbConf.Port, dbConf.DBName)
-	client, err := chatent.Open(dbConf.Dialect, s)
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-
-	if err := client.Schema.Create(context.Background()); err != nil {
-		fmt.Println(err)
-		return err
-	}
-	return nil
 }
