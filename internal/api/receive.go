@@ -150,13 +150,16 @@ func (h *callbackHandler) getGPTResponse(ctx context.Context, appId, userId, con
 }
 
 func (h *callbackHandler) sendTextMessage(ctx context.Context, appId, userId, content string) error {
-	log.Info().Msgf("[AppId: %d] [UserId: %s] Start Send Lark Response: %s", appId, userId, string(content))
+	sendContent, _ := json.Marshal(map[string]string{
+		"text": content,
+	})
+	log.Info().Msgf("[AppId: %d] [UserId: %s] Start Send Lark Response: %s", appId, userId, string(sendContent))
 	_, err := h.larkClient.Im.Message.Create(ctx, larkim.NewCreateMessageReqBuilder().
 		ReceiveIdType(larkim.ReceiveIdTypeOpenId).
 		Body(larkim.NewCreateMessageReqBodyBuilder().
 			MsgType(larkim.MsgTypeText).
 			ReceiveId(userId).
-			Content(content).
+			Content(string(sendContent)).
 			Build()).
 		Build())
 
