@@ -50,10 +50,11 @@ type Database struct {
 }
 
 type Conversation struct {
-	CloseSessionFlag  string `mapstructure:"closeSessionFlag"`
-	CloseSessionReply string `mapstructure:"closeSessionReply"`
-	EnableEnterEvent  bool   `mapstructure:"enableEnterEvent"`
-	EnterEventReply   string `mapstructure:"enterEventReply"`
+	EnableConversation bool   `mapstructure:"enableConversation"`
+	CloseSessionFlag   string `mapstructure:"closeSessionFlag"`
+	CloseSessionReply  string `mapstructure:"closeSessionReply"`
+	EnableEnterEvent   bool   `mapstructure:"enableEnterEvent"`
+	EnterEventReply    string `mapstructure:"enterEventReply"`
 }
 
 func New(path string) (*Config, error) {

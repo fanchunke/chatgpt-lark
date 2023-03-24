@@ -35,8 +35,15 @@ func NewRouter(cfg *config.Config, xgpt3Client *xgpt3.Client, larkClient *lark.C
 	r.Use(middleware.AccessHandler())
 	r.GET("/healthz", r.Healthz)
 
-	callback := NewCallbackHandler(cfg, r.xgpt3Client, r.larkClient)
-	handler := dispatcher.NewEventDispatcher(r.cfg.Lark.VerificationToken, r.cfg.Lark.EventEncryptKey).OnP2MessageReceiveV1(callback.OnP2MessageReceiveV1)
-	r.POST("/lark/receive", sdkginext.NewEventHandlerFunc(handler))
+	// gpt3
+	callbackV1 := NewCallbackHandler(cfg, r.xgpt3Client, r.larkClient, callbackVersionV1)
+	handlerV1 := dispatcher.NewEventDispatcher(r.cfg.Lark.VerificationToken, r.cfg.Lark.EventEncryptKey).OnP2MessageReceiveV1(callbackV1.OnP2MessageReceiveV1)
+
+	// gpt 3.5 turbo
+	callbackV2 := NewCallbackHandler(cfg, r.xgpt3Client, r.larkClient, callbackVersionV2)
+	handlerV2 := dispatcher.NewEventDispatcher(r.cfg.Lark.VerificationToken, r.cfg.Lark.EventEncryptKey).OnP2MessageReceiveV1(callbackV2.OnP2MessageReceiveV1)
+
+	r.POST("/lark/receive", sdkginext.NewEventHandlerFunc(handlerV1))
+	r.POST("/lark/receive/v2", sdkginext.NewEventHandlerFunc(handlerV2))
 	return r, nil
 }
