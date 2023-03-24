@@ -14,25 +14,29 @@ import (
 	larkcontact "github.com/larksuite/oapi-sdk-go/v3/service/contact/v3"
 	larkim "github.com/larksuite/oapi-sdk-go/v3/service/im/v1"
 	"github.com/rs/zerolog/log"
-	gogpt "github.com/sashabaranov/go-gpt3"
+	openai "github.com/sashabaranov/go-openai"
 )
 
+type versionType string
+
 const (
-	maxToken     = 4000
-	sessionTurns = 10
+	callbackVersionV1 versionType = "v1"
+	callbackVersionV2 versionType = "v2"
 )
 
 type callbackHandler struct {
 	cfg         *config.Config
 	xgpt3Client *xgpt3.Client
 	larkClient  *lark.Client
+	version     versionType
 }
 
-func NewCallbackHandler(cfg *config.Config, xgpt3Client *xgpt3.Client, larkClient *lark.Client) *callbackHandler {
+func NewCallbackHandler(cfg *config.Config, xgpt3Client *xgpt3.Client, larkClient *lark.Client, version versionType) *callbackHandler {
 	return &callbackHandler{
 		cfg:         cfg,
 		larkClient:  larkClient,
 		xgpt3Client: xgpt3Client,
+		version:     version,
 	}
 }
 
@@ -62,7 +66,14 @@ func (h *callbackHandler) OnP2MessageReceiveV1(ctx context.Context, event *larki
 
 		// 获取回复
 		if !closeSession {
-			reply, err = h.getGPTResponse(context.Background(), appId, openId, content)
+			var handler func(ctx context.Context, appId, userId string, content string) (string, error)
+			if h.version == callbackVersionV1 {
+				handler = h.getOpenAICompletion
+			} else {
+				handler = h.getOpenAIChatCompletion
+			}
+
+			reply, err = handler(context.Background(), appId, openId, content)
 			if err != nil {
 				log.Error().Err(err).Msgf("Get GPT Response error: %v", err)
 				return
@@ -124,31 +135,6 @@ func (h *callbackHandler) unmarshalLarkMessageContent(content string) (map[strin
 	return result, nil
 }
 
-func (h *callbackHandler) getGPTResponse(ctx context.Context, appId, userId, content string) (string, error) {
-	// 获取 GPT 回复
-	req := gogpt.CompletionRequest{
-		Model:           gogpt.GPT3TextDavinci003,
-		MaxTokens:       1500,
-		Prompt:          content,
-		TopP:            1,
-		Temperature:     0.9,
-		PresencePenalty: 0.6,
-		User:            userId,
-	}
-	resp, err := h.xgpt3Client.CreateConversationCompletionWithChannel(ctx, req, appId)
-	if err != nil {
-		return "", fmt.Errorf("CreateCompletion failed: %w", err)
-	}
-
-	if len(resp.Choices) == 0 {
-		return "", fmt.Errorf("Empty GPT Choices")
-	}
-
-	// 发送回复给用户
-	reply := strings.TrimSpace(resp.Choices[0].Text)
-	return reply, nil
-}
-
 func (h *callbackHandler) sendTextMessage(ctx context.Context, appId, userId, content string) error {
 	sendContent, _ := json.Marshal(map[string]string{
 		"text": content,
@@ -168,4 +154,74 @@ func (h *callbackHandler) sendTextMessage(ctx context.Context, appId, userId, co
 	}
 
 	return nil
+}
+
+func (h *callbackHandler) getOpenAICompletion(ctx context.Context, appId, userId, content string) (string, error) {
+	// 获取 GPT 回复
+	req := openai.CompletionRequest{
+		Model:           openai.GPT3TextDavinci003,
+		MaxTokens:       1500,
+		Prompt:          content,
+		TopP:            1,
+		Temperature:     0.9,
+		PresencePenalty: 0.6,
+		User:            userId,
+	}
+
+	var resp openai.CompletionResponse
+	var err error
+	if h.cfg.Conversation.EnableConversation {
+		resp, err = h.xgpt3Client.CreateConversationCompletionWithChannel(ctx, req, appId)
+	} else {
+		resp, err = h.xgpt3Client.Client.CreateCompletion(ctx, req)
+	}
+
+	if err != nil {
+		return "", fmt.Errorf("CreateCompletion failed: %w", err)
+	}
+
+	if len(resp.Choices) == 0 {
+		return "", fmt.Errorf("Empty GPT Choices")
+	}
+
+	// 发送回复给用户
+	reply := strings.TrimSpace(resp.Choices[0].Text)
+	return reply, nil
+}
+
+func (h *callbackHandler) getOpenAIChatCompletion(ctx context.Context, appId, userId, content string) (string, error) {
+	// 获取 GPT 回复
+	req := openai.ChatCompletionRequest{
+		Model:     openai.GPT3Dot5Turbo,
+		MaxTokens: 1500,
+		Messages: []openai.ChatCompletionMessage{
+			{
+				Role:    openai.ChatMessageRoleUser,
+				Content: content,
+			},
+		},
+		TopP:            1,
+		Temperature:     0.9,
+		PresencePenalty: 0.6,
+		User:            userId,
+	}
+	var resp openai.ChatCompletionResponse
+	var err error
+	if h.cfg.Conversation.EnableConversation {
+		resp, err = h.xgpt3Client.CreateChatCompletionWithChannel(ctx, req, appId)
+	} else {
+		resp, err = h.xgpt3Client.Client.CreateChatCompletion(ctx, req)
+	}
+
+	if err != nil {
+		return "", fmt.Errorf("CreateCompletion failed: %w", err)
+	}
+
+	if len(resp.Choices) == 0 {
+		return "", fmt.Errorf("Empty GPT Choices")
+	}
+
+	// 发送回复给用户
+	reply := strings.TrimSpace(resp.Choices[0].Message.Content)
+	return reply, nil
 }

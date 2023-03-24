@@ -16,14 +16,14 @@ import (
 	lark "github.com/larksuite/oapi-sdk-go/v3"
 	larkcore "github.com/larksuite/oapi-sdk-go/v3/core"
 	"github.com/rs/zerolog/log"
-	gogpt "github.com/sashabaranov/go-gpt3"
+	openai "github.com/sashabaranov/go-openai"
 )
 
 func Run(cfg *config.Config) {
 	log.Info().Msgf("Config: %v", cfg)
 
 	// 初始化 gpt client
-	gptClient := gogpt.NewClient(cfg.GPT.ApiKey)
+	gptClient := openai.NewClient(cfg.GPT.ApiKey)
 
 	// 初始化 lark client
 	larkClient := lark.NewClient(
@@ -56,7 +56,7 @@ func Run(cfg *config.Config) {
 	log.Info().Msg("Server Started")
 
 	interrupt := make(chan os.Signal, 1)
-	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	select {
 	case s := <-interrupt:
